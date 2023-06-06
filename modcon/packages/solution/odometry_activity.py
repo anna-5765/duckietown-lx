@@ -14,10 +14,12 @@ def delta_phi(ticks: int, prev_ticks: int, resolution: int) -> Tuple[float, floa
         ticks: current number of ticks.
     """
 
-    # TODO: these are random values, you have to implement your own solution in here
-    ticks = prev_ticks + int(np.random.uniform(0, 10))
-    dphi = np.random.random()
-    # ---
+    # Calculate the wheel rotation assuming no slip
+
+    delta_ticks = ticks - prev_ticks
+    dphi = delta_ticks * 2 * np.pi / resolution  # Wheel rotation per delta in radians
+
+
     return dphi, ticks
 
 
@@ -50,9 +52,43 @@ def pose_estimation(
         theta:              estimated heading
     """
 
-    # These are random values, replace with your own
-    x_curr = np.random.random()
-    y_curr = np.random.random()
-    theta_curr = np.random.random()
-    # ---
+    # Total distance traveled by each wheel
+    d_left = R * delta_phi_left
+    d_right = R * delta_phi_right
+
+    # Find rotation and distance traveled by robot (robot frame)
+    d_theta = (d_right - d_left) / baseline
+    d_A = (d_right + d_left) / 2
+
+    # Express movement in world frame
+    d_x = d_A * np.cos(theta_prev)
+    d_y = d_A * np.sin(theta_prev)
+
+    # Add to previous position to find current
+
+    x_curr = x_prev + d_x
+    y_curr = y_prev + d_y
+    theta_curr = theta_prev + d_theta
+
     return x_curr, y_curr, theta_curr
+
+    # Duckietown Solutions
+    
+    # x_curr = x_prev + R*(delta_phi_left+delta_phi_right)*np.cos(theta_prev)/2
+    # y_curr = y_prev + R*(delta_phi_left+delta_phi_right)*np.sin(theta_prev)/2
+    # theta_curr = theta_prev + R*(delta_phi_right-delta_phi_left)/(baseline)
+
+    #  w = [R, 2*R / baseline, 1]
+
+    # x = np.array(
+    #     [
+    #         [
+    #             (delta_phi_left + delta_phi_right) * np.cos(theta_prev) / 2,
+    #             (delta_phi_left + delta_phi_right) * np.sin(theta_prev) / 2,
+    #             0,
+    #         ],
+    #         [0, 0, (delta_phi_right - delta_phi_left) / 2],
+    #         [x_prev, y_prev, theta_prev],
+    #     ]
+    # )
+

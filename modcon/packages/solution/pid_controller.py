@@ -27,11 +27,38 @@ def PIDController(
         e_int:   current integral error (automatically becomes prev_int_y at next iteration).
     """
 
-    # TODO: these are random values, you have to implement your own PID controller in here
-    omega = np.random.uniform(-8.0, 8.0)
-    e = np.random.random()
-    e_int = np.random.random()
+    # constant velocity (v_0), use controller to solve angular velocity omega
+    # omega = u_t = kp * e + ki * e_int + kd * e_der
+
+    # PID coefficient terms (sim)
+    # # kp = 5
+    # # ki = .2
+    # # kd = .3
+    # kp = 7
+    # ki = .3
+    # kd = .4
+
+    # PID coefficient terms (duckiebot)
+    kp = 15
+    ki = 1
+    kd = .2
+
+    # Proportional term (tracking error = expected - actual)
+    e = theta_ref - theta_hat
+
+    # Integral term (finite sum of error to approximate integral)
+    e_int = prev_int + e * delta_t
+
+    # anti-windup from duckietown sol- preventing the integral error from growing too much
+    e_int = max(min(e_int,2),-2)
+
+    # Derivative term (finite difference in error over time "Euler backwards")
+    e_der = (e - prev_e)/delta_t
+
+    # PID equation
+    omega = kp * e + ki * e_int + kd * e_der
+    
     # Hint: print for debugging
-    # print(f"\n\nDelta time : {delta_t} \nE : {np.rad2deg(e)} \nE int : {e_int} \nPrev e : {prev_e} \nU : {u} \nTheta hat: {np.rad2deg(theta_hat)} \n")
+    print(f"\n\nDelta time : {delta_t} \nE : {np.rad2deg(e)} \nE int : {e_int} \nPrev e : {prev_e} \nU : {omega} \nTheta hat: {np.rad2deg(theta_hat)} \n")
     # ---
     return v_0, omega, e, e_int

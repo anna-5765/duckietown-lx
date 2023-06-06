@@ -39,10 +39,22 @@ def PIDController(
 
     # ------------- DEFINE YOUR PID FUNCTION BELOW ---------
 
-    # These are random values, replace with your implementation of a PID controller in here
-    omega = np.random.uniform(-8.0, 8.0)
-    e = np.random.random()
-    e_int = np.random.random()
-    # ---
+    # Constant v_0, use controller to solve angular velocity of duckiebot relative to y-coord
+    # omega = u_t = kp * e + ki * e_int + kd * e_der
+
+    # Proportional term (tracking error = expected - actual)
+    e = y_ref - y_hat
+
+    # Integral term (finite sum of error to approximate integral)
+    e_int = prev_int_y + e * delta_t
+
+    # Anti-windup from duckietown sol- preventing the integral error from growing too much
+    e_int = max(min(e_int,2),-2)
+
+    # Derivative term (finite difference in error over time "Euler Backwards")
+    e_der = (e - prev_e_y)/delta_t
+
+    # PID equation
+    omega = kp * e + ki * e_int + kd * e_der
     
     return v_0, omega, e, e_int

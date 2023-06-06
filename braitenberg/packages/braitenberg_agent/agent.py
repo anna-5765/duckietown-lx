@@ -18,16 +18,40 @@ from aido_schemas import (
     RGB,
 )
 
-from solution.connections import get_motor_left_matrix, get_motor_right_matrix
+from solution.connections import get_motor_left_matrix, get_motor_right_matrix, min_max_array
 from solution.preprocessing import preprocess
+
+
+
+############### GPT EXIT SYSTEM ###############
+# Robot motors continue to spin after Ctrl + C
+
+import sys
+import select
+
+def check_for_exit():
+    """Check for user input of 'exit' and exit the program if found."""
+    # Use select to check for user input without blocking
+    rlist, _, _ = select.select([sys.stdin], [], [], 0)
+    if rlist:
+        user_input = rlist[0].readline().strip()
+        if user_input.lower() == "q":
+            sys.exit("Program exited by user.")
+
+############### GPT EXIT SYSTEM ###############
 
 
 # TODO edit this Config class ! Play with different gain and const values
 @dataclass
 class BraitenbergAgentConfig:
-    gain: float = 0.9
-    const: float = 0.0
+    
+    # # simulation
+    # gain: float = 0.3
+    # const: float = 0.1
 
+    # physcial robot
+        gain: float = 0.91
+        const: float = 0.08
 
 class BraitenbergAgent:
     config = BraitenbergAgentConfig()
@@ -53,6 +77,7 @@ class BraitenbergAgent:
     def on_received_seed(self, data: int):
         np.random.seed(data)
 
+
     def on_received_episode_start(self, context: Context, data: EpisodeStart):
         context.info(f'Starting episode "{data.episode_name}".')
 
@@ -65,6 +90,11 @@ class BraitenbergAgent:
     def compute_commands(self) -> Tuple[float, float]:
         """Returns the commands (pwm_left, pwm_right)"""
         # If we have not received any image, we don't move
+
+        ############### GPT EXIT SYSTEM ###############
+        check_for_exit()
+        ############### GPT EXIT SYSTEM ###############
+
         if self.rgb is None:
             return 0.0, 0.0
 
@@ -73,6 +103,8 @@ class BraitenbergAgent:
             shape = self.rgb.shape[0], self.rgb.shape[1]
             self.left = get_motor_left_matrix(shape)
             self.right = get_motor_right_matrix(shape)
+            # (self.l_min, self.l_max) = min_max_array(self.left)
+            # (self.r_min, self.r_max) = min_max_array(self.right)
 
         # let's take only the intensity of RGB
         P = preprocess(self.rgb)
@@ -86,8 +118,18 @@ class BraitenbergAgent:
         # first, we remember the high/low of these raw signals
         self.l_max = max(l, self.l_max)
         self.r_max = max(r, self.r_max)
+
         self.l_min = min(l, self.l_min)
         self.r_min = min(r, self.r_min)
+
+        # EDIT MAKE MOTORS SYMETTRICAL
+        motor_max = max(self.l_max, self.r_max)
+        self.l_max = motor_max
+        self.r_max = motor_max
+        motor_min = min(self.l_min, self.r_min)
+        self.l_min = motor_min
+        self.r_min = motor_min
+
 
         # now rescale from 0 to 1
         ls = rescale(l, self.l_min, self.l_max)
@@ -97,7 +139,7 @@ class BraitenbergAgent:
         const = self.config.const
         pwm_left = const + ls * gain
         pwm_right = const + rs * gain
-
+        print("left/right", pwm_left, pwm_right)
         return pwm_left, pwm_right
 
     def on_received_get_commands(self, context: Context, data: GetCommands):
