@@ -32,7 +32,6 @@ def detect_line_segments(img):
     plt.imshow(cv2.cvtColor(np.float32(jpg1), cv2.COLOR_BGR2RGB))
 
     segment_list_rect = rectify_segments(rcg.rectifier, rcg.gpg, segment_list)
-
     sg = find_ground_coordinates(rcg.gpg, segment_list_rect)
 
     return sg

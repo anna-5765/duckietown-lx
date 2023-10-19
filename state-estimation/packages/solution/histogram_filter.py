@@ -17,8 +17,6 @@ def histogram_prior(belief, grid_spec, mean_0, cov_0):
 
 
 # Now let's define the predict function
-
-
 def histogram_predict(belief, left_encoder_ticks, right_encoder_ticks, grid_spec, robot_spec, cov_mask):
     belief_in = belief
 
@@ -29,12 +27,16 @@ def histogram_predict(belief, left_encoder_ticks, right_encoder_ticks, grid_spec
     maxids = np.unravel_index(belief_in.argmax(), belief_in.shape)
     phi_max = grid_spec['phi_min'] + (maxids[1] + 0.5) * grid_spec['delta_phi']
 
-    v = 0.0  # replace this with a function that uses the encoder
-    w = 0.0  # replace this with a function that uses the encoder
+    d_right = (right_encoder_ticks/robot_spec['encoder_resolution']) * 2*np.pi*robot_spec['wheel_radius'] # right wheel distance traveled
+    d_left = (left_encoder_ticks/robot_spec['encoder_resolution']) * 2*np.pi*robot_spec['wheel_radius'] # left wheel distance traveled   
+    d_phi = (d_right - d_left)/(robot_spec['wheel_baseline']) # change in angle phi
 
+    d_A = ((d_right + d_left)/2) # distance robot center traveled
+    d_d =  d_A * np.sin(phi_max) # "d" component of movement
+    
     # propagate each centroid
-    d_t = grid_spec["d"] + v
-    phi_t = grid_spec["phi"] + w
+    d_t = grid_spec["d"] + d_d
+    phi_t = grid_spec["phi"] + d_phi
 
     p_belief = np.zeros(belief.shape)
 
@@ -53,8 +55,11 @@ def histogram_predict(belief, left_encoder_ticks, right_encoder_ticks, grid_spec
                     continue
 
                 # TODO Now find the cell where the new mass should be added
-                i_new = i  # replace with something that accounts for the movement of the robot
-                j_new = j  # replace with something that accounts for the movement of the robot
+                # i_new = np.abs(grid_spec['d'][:, 0] - d_t[i,j]).argmin() # find index of 'd' closest value to 'd_t'
+                # j_new = np.abs(grid_spec['phi'][0, :] - phi_t[i,j]).argmin() # find index of 'phi' closest value to 'phi_t'
+
+                i_new = int(floor((d_t[i,j] - grid_spec['d_min'])/grid_spec['delta_d']))  
+                j_new = int(floor((phi_t[i,j] - grid_spec['phi_min'])/grid_spec['delta_phi']))
 
                 p_belief[i_new, j_new] += belief[i, j]
 
@@ -76,17 +81,28 @@ def histogram_predict(belief, left_encoder_ticks, right_encoder_ticks, grid_spec
 def prepare_segments(segments, grid_spec):
     filtered_segments = []
     for segment in segments:
-
         # we don't care about RED ones for now
         if segment.color != segment.WHITE and segment.color != segment.YELLOW:
             continue
         # filter out any segments that are behind us
         if segment.points[0].x < 0 or segment.points[1].x < 0:
             continue
+        # filter out yellow segments in grass
+        if segment.points[0].y < 0 and segment.color == segment.YELLOW:
+            continue
+
 
         point_range = getSegmentDistance(segment)
         if grid_spec["range_est"] > point_range > 0:
             filtered_segments.append(segment)
+            
+            #gather info
+            # if segment.color == segment.YELLOW:
+            #     print("point0", segment.points[0].x, segment.points[0].y)
+            #     print("point1", segment.points[1].x, segment.points[1].y)
+    
+    
+    # input("Press Enter to continue...")
     return filtered_segments
 
 
@@ -110,21 +126,50 @@ def generate_vote(segment, road_spec):
     phi_i = np.arcsin(t_hat[1])
     if segment.color == segment.WHITE:  # right lane is white
         if p1[0] > p2[0]:  # right edge of white lane
-            d_i -= road_spec["linewidth_white"]
+            d_i -= road_spec["linewidth_white"] + 0.05
+            #print('right white', d_i)
         else:  # left edge of white lane
-            d_i -= road_spec["linewidth_white"]
-            d_i = road_spec["lanewidth"] * 2 + road_spec["linewidth_yellow"] - d_i
+            # d_i -= road_spec["linewidth_white"]
+            # d_i = road_spec["lanewidth"] / 2 + road_spec["linewidth_yellow"] - d_i
+            d_i = road_spec["lanewidth"] / 2 - d_i  + 0.05
             phi_i = -phi_i
+            #print('left white', d_i)
 
     elif segment.color == segment.YELLOW:  # left lane is yellow
         if p2[0] > p1[0]:  # left edge of yellow lane
             d_i -= road_spec["linewidth_yellow"]
-            d_i = road_spec["lanewidth"] / 2 - d_i
+            # d_i = road_spec["lanewidth"] / 2 - d_i
             phi_i = -phi_i
+            # print('left yellow', d_i)
         else:  # right edge of yellow lane
             d_i += road_spec["linewidth_yellow"] * np.random.choice([0, 1])
             d_i -= road_spec["lanewidth"] / 2
+            # print('right yellow', d_i)
     return d_i, phi_i
+
+# def generate_vote(segment, road_spec):
+#     p1 = np.array([segment.points[0].x, segment.points[0].y])
+#     p2 = np.array([segment.points[1].x, segment.points[1].y])
+#     t_hat = (p2 - p1) / np.linalg.norm(p2 - p1)
+#     n_hat = np.array([-t_hat[1], t_hat[0]])
+
+#     d1 = np.inner(n_hat, p1)
+#     d2 = np.inner(n_hat, p2)
+    
+#     d_i = (d1 + d2) / 2
+#     phi_i = np.pi / 2 - np.arctan2(t_hat[1], t_hat[0])
+#     if segment.color == segment.WHITE:  # segment is white
+#         d_i -= road_spec['lanewidth'] / 2 
+#         if p2[0] > p1[0]:  # segment is right edge of white lane
+#             # subtract width of white line
+#             d_i -= road_spec['linewidth_white']
+
+#     elif segment.color == segment.YELLOW:  # segment is yellow
+#         d_i += road_spec['lanewidth'] / 2
+#         if p2[0] > p1[0]:  # left edge of yellow lane
+#             d_i += road_spec['linewidth_yellow']
+
+#     return d_i, phi_i
 
 
 def generate_measurement_likelihood(segments, road_spec, grid_spec):
@@ -147,8 +192,11 @@ def generate_measurement_likelihood(segments, road_spec, grid_spec):
         # from the center and the angle relative to the center generated by the single
         # segment under consideration
         # TODO find the cell index that corresponds to the measurement d_i, phi_i
-        i = 1  # replace this
-        j = 1  # replace this
+        # i = np.abs(grid_spec['d'][:, 0] - d_i).argmin() # index in d where d = d_i (all row columns are identical)
+        # j = np.abs(grid_spec['phi'][0, :] - phi_i).argmin() # index in phi where phi = phi_i (all rows are identical)
+        
+        i = int(floor((d_i - grid_spec['d_min'])/grid_spec['delta_d']))
+        j = int(floor((phi_i - grid_spec['phi_min'])/grid_spec['delta_phi']))
 
         # Add one vote to that cell
         measurement_likelihood[i, j] += 1
@@ -172,7 +220,11 @@ def histogram_update(belief, segments, road_spec, grid_spec):
         # probability distribution
 
         # replace this with something that combines the belief and the measurement_likelihood
-        belief = measurement_likelihood
+        belief *= measurement_likelihood
+        if np.sum(belief) == 0:
+            belief = measurement_likelihood
+        else:
+            belief /= np.sum(belief)
     return measurement_likelihood, belief
 
 def getSegmentDistance(segment):
