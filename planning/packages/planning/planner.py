@@ -27,10 +27,8 @@ def connect_poses (ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
     
         # write steps - for empty environment, turn toward goal position, move forward to x,y coords, orient at goal
         goal_turn = PlanStep(
-            # duration = theta_goal_turn/ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else (360+theta_goal_turn)/ps.max_angular_velocity_deg_s,
             duration = abs(theta_goal_turn/ps.max_angular_velocity_deg_s),
             velocity_x_m_s = 0.0,
-            # angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
             angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
         )
         goal_move = PlanStep(
@@ -39,10 +37,8 @@ def connect_poses (ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
             angular_velocity_deg_s = 0.0
         )
         goal_orient = PlanStep(
-            # duration = theta_goal_orient/ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else (360+theta_goal_orient)/ps.max_angular_velocity_deg_s,
             duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
             velocity_x_m_s = 0.0,
-            # angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
             angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
         )
 
@@ -104,37 +100,6 @@ class Planner:
 
         # If it is feasible you need to provide a plan.
         plan = connect_poses(self.params, start, goal)
-
-        # # A plan is a list of PlanStep
-        # plan: List[PlanStep] = []
-
-        # # A plan step consists in a duration, a linear and angular velocity.
-
-        # # Let's trace a square of side L at maximum velocity.
-        # L = 1.0
-        # duration_straight_m_s = L / self.params.max_linear_velocity_m_s
-        # duration_turn_deg_s = 90.0 / self.params.max_angular_velocity_deg_s
-        # # The plan will be: straight, turn, straight, turn, straight, turn, straight, turn
-
-        # straight = PlanStep(
-        #     duration=duration_straight_m_s,
-        #     angular_velocity_deg_s=0.0,
-        #     velocity_x_m_s=self.params.max_linear_velocity_m_s,
-        # )
-        # turn = PlanStep(
-        #     duration=duration_turn_deg_s,
-        #     angular_velocity_deg_s=self.params.max_angular_velocity_deg_s,
-        #     velocity_x_m_s=0.0,
-        # )
-
-        # plan.append(straight)
-        # plan.append(turn)
-        # plan.append(straight)
-        # plan.append(turn)
-        # plan.append(straight)
-        # plan.append(turn)
-        # plan.append(straight)
-        # plan.append(turn)
 
         result: PlanningResult = PlanningResult(feasible, plan)
         context.write("response", result)
