@@ -1,4 +1,5 @@
 from typing import List
+import math
 
 from aido_schemas import Context, FriendlyPose
 from dt_protocols import (
@@ -12,6 +13,45 @@ from dt_protocols import (
 
 __all__ = ["Planner"]
 
+def connect_poses (ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
+
+        # a plan is a list of plan steps
+        plan: List[PlanStep] = []
+        
+        # find turn angle and distance difference (a is start b is goal)
+        dist_x = b.x - a.x                                          # x distance from start to goal
+        dist_y = b.y - a.y                                          # y distance from start to goal
+        theta_goal_turn = math.degrees(math.atan2(dist_y, dist_x))  # angle to goal position (in degrees)
+        distance_start_goal = math.sqrt(dist_x**2+dist_y**2)        # distance from start pos to goal pos
+        theta_goal_orient = b.theta_deg - theta_goal_turn           # difference in move angle to goal angle
+    
+        # write steps - for empty environment, turn toward goal position, move forward to x,y coords, orient at goal
+        goal_turn = PlanStep(
+            # duration = theta_goal_turn/ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else (360+theta_goal_turn)/ps.max_angular_velocity_deg_s,
+            duration = abs(theta_goal_turn/ps.max_angular_velocity_deg_s),
+            velocity_x_m_s = 0.0,
+            # angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
+            angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
+        )
+        goal_move = PlanStep(
+            duration = distance_start_goal/ps.max_linear_velocity_m_s,
+            velocity_x_m_s = ps.max_linear_velocity_m_s,
+            angular_velocity_deg_s = 0.0
+        )
+        goal_orient = PlanStep(
+            # duration = theta_goal_orient/ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else (360+theta_goal_orient)/ps.max_angular_velocity_deg_s,
+            duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
+            velocity_x_m_s = 0.0,
+            # angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
+            angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
+        )
+
+        # make plan
+        plan.append(goal_turn)
+        plan.append(goal_move)
+        plan.append(goal_orient)
+
+        return plan
 
 class Planner:
     params: PlanningSetup
@@ -63,37 +103,38 @@ class Planner:
             return
 
         # If it is feasible you need to provide a plan.
+        plan = connect_poses(self.params, start, goal)
 
-        # A plan is a list of PlanStep
-        plan: List[PlanStep] = []
+        # # A plan is a list of PlanStep
+        # plan: List[PlanStep] = []
 
-        # A plan step consists in a duration, a linear and angular velocity.
+        # # A plan step consists in a duration, a linear and angular velocity.
 
-        # Let's trace a square of side L at maximum velocity.
-        L = 1.0
-        duration_straight_m_s = L / self.params.max_linear_velocity_m_s
-        duration_turn_deg_s = 90.0 / self.params.max_angular_velocity_deg_s
-        # The plan will be: straight, turn, straight, turn, straight, turn, straight, turn
+        # # Let's trace a square of side L at maximum velocity.
+        # L = 1.0
+        # duration_straight_m_s = L / self.params.max_linear_velocity_m_s
+        # duration_turn_deg_s = 90.0 / self.params.max_angular_velocity_deg_s
+        # # The plan will be: straight, turn, straight, turn, straight, turn, straight, turn
 
-        straight = PlanStep(
-            duration=duration_straight_m_s,
-            angular_velocity_deg_s=0.0,
-            velocity_x_m_s=self.params.max_linear_velocity_m_s,
-        )
-        turn = PlanStep(
-            duration=duration_turn_deg_s,
-            angular_velocity_deg_s=self.params.max_angular_velocity_deg_s,
-            velocity_x_m_s=0.0,
-        )
+        # straight = PlanStep(
+        #     duration=duration_straight_m_s,
+        #     angular_velocity_deg_s=0.0,
+        #     velocity_x_m_s=self.params.max_linear_velocity_m_s,
+        # )
+        # turn = PlanStep(
+        #     duration=duration_turn_deg_s,
+        #     angular_velocity_deg_s=self.params.max_angular_velocity_deg_s,
+        #     velocity_x_m_s=0.0,
+        # )
 
-        plan.append(straight)
-        plan.append(turn)
-        plan.append(straight)
-        plan.append(turn)
-        plan.append(straight)
-        plan.append(turn)
-        plan.append(straight)
-        plan.append(turn)
+        # plan.append(straight)
+        # plan.append(turn)
+        # plan.append(straight)
+        # plan.append(turn)
+        # plan.append(straight)
+        # plan.append(turn)
+        # plan.append(straight)
+        # plan.append(turn)
 
         result: PlanningResult = PlanningResult(feasible, plan)
         context.write("response", result)
