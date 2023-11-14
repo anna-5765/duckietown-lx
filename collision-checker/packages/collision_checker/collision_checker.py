@@ -48,7 +48,6 @@ def check_collision(
         new_y = placed_primitive.pose.y + robot_pose.y
 
         # Rotate
-        # TODO: Do I need to rotate the x and y coord too?
         new_theta = placed_primitive.pose.theta_deg + robot_pose.theta_deg
 
         # Create new placed primitive
@@ -75,6 +74,32 @@ def check_collision_list(
 
     return False
 
+# Circle v Rectangle SAT functions
+def closest_point(cir_center, r_corners):
+    distance = []
+    for corner in r_corners:
+        distance.append(math.dist(cir_center, corner))   
+    cp = r_corners[distance.index(min(distance))]
+    return cp
+
+def project_points(axes, cir_center, c_radius, r_corners):
+    proj_matrix_r = [[], [], []]
+    proj_matrix_c = [[], [], []]
+
+    # rectangle
+    for axis in range(len(axes)):
+        for corner in r_corners:
+            projection = np.dot(corner, axes[axis])
+            proj_matrix_r[axis].append(projection)
+        
+    # circle
+    for axis in range(len(axes)):
+        projection = np.dot(cir_center, axes[axis])
+        min_projection = projection - c_radius
+        max_projection = projection + c_radius
+        proj_matrix_c[axis].append(min_projection)
+        proj_matrix_c[axis].append(max_projection)
+    return proj_matrix_c, proj_matrix_r
 
 def check_collision_shape(a: PlacedPrimitive, b: PlacedPrimitive) -> bool:
     # This is just some code to get you started, but you don't have to follow it exactly
@@ -86,68 +111,61 @@ def check_collision_shape(a: PlacedPrimitive, b: PlacedPrimitive) -> bool:
             shape_collided = False
     elif isinstance(a.primitive, Rectangle) and isinstance(b.primitive, Circle):
         # a robot b circle in environment
-        # approx a as circle inside rectangle (r=xmax)
-        cir_center_dist = math.sqrt((b.pose.x-a.pose.x)**2+(b.pose.y-a.pose.y)**2)
-        if cir_center_dist < a.primitive.xmax + b.primitive.radius:
-                shape_collided = True
-        else: 
-            shape_collided = False
+        # # approx a as circle inside rectangle (r=xmax)
+        # cir_center_dist = math.sqrt((b.pose.x-a.pose.x)**2+(b.pose.y-a.pose.y)**2)
+        # if cir_center_dist < a.primitive.xmax + b.primitive.radius:
+        #         shape_collided = True
+        # else: 
+        #     shape_collided = False
 
-        # ## Separating Axis Theorem
-        # # Find corners of rectangle a
-        # a_theta_rad = np.deg2rad(a.pose.theta_deg)
+        ## Separating Axis Theorem
+        # Find corners of rectangle a
+        a_theta_rad = np.deg2rad(a.pose.theta_deg)
 
-        # # apply rotation
-        # a_r1 = [a.primitive.xmax*math.cos(a_theta_rad)-a.primitive.ymax*math.sin(a_theta_rad), a.primitive.xmax*math.sin(a_theta_rad)+a.primitive.ymax*math.cos(a_theta_rad)]
-        # a_r2 = [a.primitive.xmin*math.cos(a_theta_rad)-a.primitive.ymax*math.sin(a_theta_rad), a.primitive.xmin*math.sin(a_theta_rad)+a.primitive.ymax*math.cos(a_theta_rad)]
-        # a_r3 = [a.primitive.xmin*math.cos(a_theta_rad)-a.primitive.ymin*math.sin(a_theta_rad), a.primitive.xmin*math.sin(a_theta_rad)+a.primitive.ymin*math.cos(a_theta_rad)]
-        # a_r4 = [a.primitive.xmax*math.cos(a_theta_rad)-a.primitive.ymin*math.sin(a_theta_rad), a.primitive.xmax*math.sin(a_theta_rad)+a.primitive.ymin*math.cos(a_theta_rad)]
+        # apply rotation
+        a_r1 = [a.primitive.xmax*math.cos(a_theta_rad)-a.primitive.ymax*math.sin(a_theta_rad), a.primitive.xmax*math.sin(a_theta_rad)+a.primitive.ymax*math.cos(a_theta_rad)]
+        a_r2 = [a.primitive.xmin*math.cos(a_theta_rad)-a.primitive.ymax*math.sin(a_theta_rad), a.primitive.xmin*math.sin(a_theta_rad)+a.primitive.ymax*math.cos(a_theta_rad)]
+        a_r3 = [a.primitive.xmin*math.cos(a_theta_rad)-a.primitive.ymin*math.sin(a_theta_rad), a.primitive.xmin*math.sin(a_theta_rad)+a.primitive.ymin*math.cos(a_theta_rad)]
+        a_r4 = [a.primitive.xmax*math.cos(a_theta_rad)-a.primitive.ymin*math.sin(a_theta_rad), a.primitive.xmax*math.sin(a_theta_rad)+a.primitive.ymin*math.cos(a_theta_rad)]
 
-        # # apply translation 
-        # a_c1 = [a_r1[0]+a.pose.x, a_r1[1]+a.pose.y]
-        # a_c2 = [a_r2[0]+a.pose.x, a_r2[1]+a.pose.y]
-        # a_c3 = [a_r3[0]+a.pose.x, a_r3[1]+a.pose.y]
-        # a_c4 = [a_r4[0]+a.pose.x, a_r4[1]+a.pose.y]
+        # apply translation 
+        a_c1 = [a_r1[0]+a.pose.x, a_r1[1]+a.pose.y]
+        a_c2 = [a_r2[0]+a.pose.x, a_r2[1]+a.pose.y]
+        a_c3 = [a_r3[0]+a.pose.x, a_r3[1]+a.pose.y]
+        a_c4 = [a_r4[0]+a.pose.x, a_r4[1]+a.pose.y]
 
-        # # Find axes of rectangle
-        # axis1_a = np.array([a_c1[0]-a_c2[0], a_c1[1]-a_c2[1]])
-        # axis2_a = np.array([a_c1[0]-a_c4[0], a_c1[1]-a_c4[1]])
+        # store points in variables
+        b_center = [b.pose.x, b.pose.y]
+        r_points = [a_c1, a_c2, a_c3, a_c4]
 
-        # # Project points onto each axis
-        # b_center = [b.pose.x, b.pose.y]
-        # r_points = [a_c1, a_c2, a_c3, a_c4]
-        # axes = [axis1_a, axis2_a]
-        # proj_matrix_r = [[], []]
-        # proj_matrix_c = [[], []]
+        # Find axes of rectangle
+        axis1_a = np.array([a_c1[0]-a_c2[0], a_c1[1]-a_c2[1]])
+        axis2_a = np.array([a_c1[0]-a_c4[0], a_c1[1]-a_c4[1]])
 
-        # # rectangle
-        # for axis in range(len(axes)):
-        #     for point in r_points:
-        #         projection = np.dot(point, axes[axis])
-        #         proj_matrix_r[axis].append(projection)
+        # Find axis of circle
+        cp = closest_point(b_center, r_points)
+        axis1_b = np.array([cp[0]-b_center[0], cp[1]-b_center[1]])
+
+        # Project points onto each axis (including normalize axes)
+        axes = [axis1_a, axis2_a, axis1_b]
+        for axis in axes:
+            axis /= np.linalg.norm(axis)
+            
+        proj_matrix_c, proj_matrix_r = project_points(axes, b_center, b.primitive.radius, r_points)
         
-        # # circle
-        # for axis in range(len(axes)):
-        #     projection = np.dot(b_center, axes[axis])
-        #     min_projection = projection - b.primitive.radius
-        #     max_projection = projection + b.primitive.radius
-        #     proj_matrix_c[axis].append(min_projection)
-        #     proj_matrix_c[axis].append(max_projection)
+        # Use max and min values from projections to determine overlap
+        condition1 = min(proj_matrix_r[0])<= max(proj_matrix_c[0]) and max(proj_matrix_r[0])>= min(proj_matrix_c[0])
+        condition2 = min(proj_matrix_r[1])<= max(proj_matrix_c[1]) and max(proj_matrix_r[1])>= min(proj_matrix_c[1])
+        condition3 = min(proj_matrix_r[2])<= max(proj_matrix_c[2]) and max(proj_matrix_r[2])>= min(proj_matrix_c[2])
 
-        # # Use max and min values from projections to determine overlap
-        # condition1 = min(proj_matrix_r[0])<= max(proj_matrix_c[0]) and max(proj_matrix_r[0])>= min(proj_matrix_c[0])
-        # condition2 = min(proj_matrix_r[1])<= max(proj_matrix_c[1]) and max(proj_matrix_r[1])>= min(proj_matrix_c[1])
-        
-        
         # print("radius", b.primitive.radius)
         # print("proj matrix circle", proj_matrix_c)
         # print("proj matrix rectangle", proj_matrix_r)
 
-
-        # if condition1 and condition2:
-        #     shape_collided = True
-        # else: 
-        #     shape_collided = False   
+        if condition1 and condition2 and condition3:
+            shape_collided = True
+        else: 
+            shape_collided = False   
 
     elif isinstance(a.primitive, Rectangle) and isinstance(b.primitive, Rectangle):
         # # first approx all shapes as circle inside rectangle (using r=xmax)
