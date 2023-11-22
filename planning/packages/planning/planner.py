@@ -57,14 +57,7 @@ def connect_poses (G, ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
         goal_node = closest_node(G, b)
         node_path = nx.dijkstra_path(G, start_node, goal_node) # find path of nodes from start to goal
         pose_data = [G.nodes[node]['q'][:3,2] for node in node_path] # convert sequence of nodes to poses
-        
-        # def se2_to_friendly_pose(q):
-        #     x,y = q[:2, 2]
-        #     theta_deg = math.degrees(math.atan2(q[2,2], q[1,2]))
-        #     return FriendlyPose(x, y, theta_deg)
-        # pose_data = [se2_to_friendly_pose(G.nodes[node]['q']) for node in node_path]
     
-
         for node in range(1, len(pose_data)):
             dist_x = pose_data[node][0] - pose_data[node-1][0]                                         
             dist_y = pose_data[node][1] - pose_data[node-1][1]                                         
@@ -103,7 +96,7 @@ def connect_poses (G, ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
                 )
                 plan.append(step_move)
 
-                if node == len(pose_data): # last node, orient at goal position
+                if node == len(pose_data)-1: # last node, orient at goal position
                     theta_goal_orient = b.theta_deg - pose_data[node-1][2]  # difference in move angle to goal angle
 
                     goal_orient = PlanStep(
@@ -138,29 +131,28 @@ def closest_node(G, target_pos):
     return closest
 
 def collision_check(node, env: List[PlacedPrimitive]):
+    node_name, node_data = node
+    node_pos = node_data['q'][:2, 2]
+    dist_from_obs = .1 # keep an additional distance away from obstacles
     ## Empty Environment
     if not env:
-        collision = False
+        return False
     ## Obstacles Exist
     else:
         for primitive in env:
             if isinstance(primitive.primitive, Rectangle):
                 if (
-                    node[0] <= primitive.pose.x + primitive.primitive.xmax
-                    and node[0] >= primitive.pose.x + primitive.primitive.xmin
-                    and node[1] <= primitive.pose.y + primitive.primitive.ymax 
-                    and node[1] >= primitive.pose.y + primitive.primitive.ymin
+                    node_pos[0] <= primitive.pose.x + primitive.primitive.xmax + dist_from_obs
+                    and node_pos[0] >= primitive.pose.x + primitive.primitive.xmin - dist_from_obs
+                    and node_pos[1] <= primitive.pose.y + primitive.primitive.ymax + dist_from_obs
+                    and node_pos[1] >= primitive.pose.y + primitive.primitive.ymin - dist_from_obs
                 ):
-                    collision = True
-                else: 
-                    collision = False
+                    return True
             else: # Circle
-                distance = math.dist(node, [primitive.pose.x, primitive.pose.y])
-                if distance < primitive.primitive.radius:
-                    collision = True
-                else: 
-                    collision = False
-    return bool(collision)
+                distance = math.dist(node_pos, [primitive.pose.x, primitive.pose.y])
+                if distance < primitive.primitive.radius + dist_from_obs:
+                    return True
+    return False
 
 def pose_network(ps: PlanningSetup):
     # Base grid size off of acceptable tolerance from goal
@@ -243,10 +235,21 @@ class Planner:
         G = pose_network(self.params)
 
         # Remove nodes if collision
-        for node in list(G.nodes()):
+        node_collides = []
+        node_positions = []
+        for node in G.nodes.data():
+            node_name, node_data = node
             collision = collision_check(node, self.params.environment)
             if collision:
-                G.remove_node(node)
+                node_collides.append(node_name)
+                node_positions.append(node_data)
+        
+        
+        # print('NODE COLLIDES', node_collides)
+        # print('NODE POS', node_positions)
+
+        for node in node_collides:
+            G.remove_node(node)
 
         # You need to declare if it is feasible or not
         start_node = closest_node(G, start)
