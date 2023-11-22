@@ -1,1 +1,27 @@
 # INTENTIONALLY LEFT BLANK
+
+18:52:29 evaluator INFO:dt_protocols:set 1 of 1 - query 1 of 27
+18:52:31 solution  has path True
+18:52:31 solution  NODE PATH [(1, 1)]
+18:52:31 solution  ENVIRONMENT [PlacedPrimitive(pose=FriendlyPose(x=0.0, y=0.0, theta_deg=0.0), primitive=Rectangle(xmin=0.0, ymin=0.0, xmax=0.1, ymax=3.0), motion=None, appearance=Appearance(fillcolor=brown, rel_zorder=0)), 
+                                PlacedPrimitive(pose=FriendlyPose(x=0.0, y=0.0, theta_deg=0.0), primitive=Rectangle(xmin=2.9, ymin=0.0, xmax=3.0, ymax=3.0), motion=None, appearance=Appearance(fillcolor=brown, rel_zorder=0)), 
+                                PlacedPrimitive(pose=FriendlyPose(x=0.0, y=0.0, theta_deg=0.0), primitive=Rectangle(xmin=0.0, ymin=2.9, xmax=3.0, ymax=3.0), motion=None, appearance=Appearance(fillcolor=brown, rel_zorder=0)), 
+                                PlacedPrimitive(pose=FriendlyPose(x=0.0, y=0.0, theta_deg=0.0), primitive=Rectangle(xmin=0.0, ymin=0.0, xmax=3.0, ymax=0.1), motion=None, appearance=Appearance(fillcolor=brown, rel_zorder=0))]
+18:52:31 solution  !!! THIS IS THE PLAN !!! [PlanStep(duration=4.387784644552339, velocity_x_m_s=0.0, angular_velocity_deg_s=-30.0), PlanStep(duration=1.5051993223490368, velocity_x_m_s=0.4, angular_velocity_deg_s=0.0), PlanStep(duration=5.887784644552339, velocity_x_m_s=0.0, angular_velocity_deg_s=30.0)]
+18:52:32 evaluator / |#        
+
+19:48:42 solution  NODE ((46, 4), {'q': array([[ 1. , -0. ,  2.3],
+19:48:42 solution         [ 0. ,  1. ,  0.2],
+19:48:42 solution         [ 0. ,  0. ,  1. ]])})
+19:48:42 solution  NODE POS [[ 1.  -0.   2.3]
+19:48:42 solution   [ 0.   1.   0.2]]
+19:48:42 solution  NODE ((46, 5), {'q': array([[ 1.  , -0.  ,  2.3 ],
+19:48:42 solution         [ 0.  ,  1.  ,  0.25],
+19:48:42 solution         [ 0.  ,  0.  ,  1.  ]])})
+19:48:42 solution  NODE POS [[ 1.   -0.    2.3 ]
+19:48:42 solution   [ 0.    1.    0.25]]
+19:48:42 solution  NODE ((46, 6), {'q': array([[ 1. , -0. ,  2.3],
+19:48:42 solution         [ 0. ,  1. ,  0.3],
+19:48:42 solution         [ 0. ,  0. ,  1. ]])})
+19:48:42 solution  NODE POS [[ 1.  -0.   2.3]
+19:48:42 solution   [ 0.   1.   0.3]]
