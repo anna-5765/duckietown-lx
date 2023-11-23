@@ -20,93 +20,89 @@ def connect_poses (G, ps: PlanningSetup, a: FriendlyPose, b: FriendlyPose):
     # a plan is a list of plan steps
     plan: List[PlanStep] = []
 
-    # ## Empty Environment (has 4 placed primitives in environment list)
-    # if len(ps.environment) == 4:
-    #     # find turn angle and distance difference (a is start b is goal)
-    #     dist_x = b.x - a.x                                          # x distance from start to goal
-    #     dist_y = b.y - a.y                                          # y distance from start to goal
-    #     theta_goal_turn = math.degrees(math.atan2(dist_y, dist_x))  # angle to goal position (in degrees)
-    #     distance_start_goal = math.sqrt(dist_x**2+dist_y**2)        # distance from start pos to goal pos
-    #     theta_goal_orient = b.theta_deg - theta_goal_turn           # difference in move angle to goal angle
+    ## Empty Environment (has 4 placed primitives in environment list)
+    if len(ps.environment) == 4:
+        # find turn angle and distance difference (a is start b is goal)
+        dist_x = b.x - a.x                                          # x distance from start to goal
+        dist_y = b.y - a.y                                          # y distance from start to goal
+        theta_goal_turn = math.degrees(math.atan2(dist_y, dist_x))  # angle to goal position (in degrees)
+        distance_start_goal = math.sqrt(dist_x**2+dist_y**2)        # distance from start pos to goal pos
+        theta_goal_orient = b.theta_deg - theta_goal_turn           # difference in move angle to goal angle
                 
-    #     # write steps - for empty environment, turn toward goal position, move forward to x,y coords, orient at goal
-    #     goal_turn = PlanStep(
-    #         duration = abs(theta_goal_turn/ps.max_angular_velocity_deg_s),
-    #         velocity_x_m_s = 0.0,
-    #         angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
-    #     )
-    #     goal_move = PlanStep(
-    #         duration = distance_start_goal/ps.max_linear_velocity_m_s,
-    #         velocity_x_m_s = ps.max_linear_velocity_m_s,
-    #         angular_velocity_deg_s = 0.0
-    #     )
-    #     goal_orient = PlanStep(
-    #         duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
-    #         velocity_x_m_s = 0.0,
-    #         angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
-    #     )
+        # write steps - for empty environment, turn toward goal position, move forward to x,y coords, orient at goal
+        goal_turn = PlanStep(
+            duration = abs(theta_goal_turn/ps.max_angular_velocity_deg_s),
+            velocity_x_m_s = 0.0,
+            angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_turn > 0 else -ps.max_angular_velocity_deg_s
+        )
+        goal_move = PlanStep(
+            duration = distance_start_goal/ps.max_linear_velocity_m_s,
+            velocity_x_m_s = ps.max_linear_velocity_m_s,
+            angular_velocity_deg_s = 0.0
+        )
+        goal_orient = PlanStep(
+            duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
+            velocity_x_m_s = 0.0,
+            angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
+        )
 
-    #     # make plan
-    #     plan.append(goal_turn)
-    #     plan.append(goal_move)
-    #     plan.append(goal_orient)
+        # make plan
+        plan.append(goal_turn)
+        plan.append(goal_move)
+        plan.append(goal_orient)
 
     ## Static Obstacles
-    if len(ps.environment) > 4: # change to > 4 when troubleshooting over for non-empty environment
+    if len(ps.environment) > 4: # placed primitives > 4 for non-empty environment
         start_node = closest_node(G, a)
         goal_node = closest_node(G, b)
         node_path = nx.dijkstra_path(G, start_node, goal_node) # find path of nodes from start to goal
-        pose_data = [G.nodes[node]['q'][:3,2] for node in node_path] # convert sequence of nodes to poses
-    
+        pose_data = [G.nodes[node]['q'][:2,2] for node in node_path] # convert sequence of nodes to poses
+        current_theta = a.theta_deg
+
         for node in range(1, len(pose_data)):
             dist_x = pose_data[node][0] - pose_data[node-1][0]                                         
             dist_y = pose_data[node][1] - pose_data[node-1][1]                                         
             theta_goal_turn = math.degrees(math.atan2(dist_y, dist_x))  
             distance_start_goal = math.sqrt(dist_x**2+dist_y**2)
-            pose_data[node][2] = theta_goal_turn        
-                
-            if node == 1:
-                step_turn = PlanStep(
-                    duration = abs((theta_goal_turn - a.theta_deg)/ps.max_angular_velocity_deg_s),
-                    velocity_x_m_s = 0.0,
-                    angular_velocity_deg_s = ps.max_angular_velocity_deg_s if (theta_goal_turn - a.theta_deg) > 0 else -ps.max_angular_velocity_deg_s
-                )
-                step_move = PlanStep(
-                    duration = distance_start_goal/ps.max_linear_velocity_m_s,
-                    velocity_x_m_s = ps.max_linear_velocity_m_s,
-                    angular_velocity_deg_s = 0.0
-                )
-                # add to plan
-                plan.append(step_turn)
-                plan.append(step_move)
             
-            elif node > 1:
-                if not pose_data[node][2] == pose_data[node-1][2]:
-                    step_turn = PlanStep(
-                        duration = abs((theta_goal_turn - pose_data[node-1][2])/ps.max_angular_velocity_deg_s),
-                        velocity_x_m_s = 0.0,
-                        angular_velocity_deg_s = ps.max_angular_velocity_deg_s if (theta_goal_turn - pose_data[node-1][2]) > 0 else -ps.max_angular_velocity_deg_s
-                    )
-                    plan.append(step_turn)
+            turn_angle = theta_goal_turn - current_theta
+            if turn_angle > 180:
+                turn_angle -= 360
+            elif turn_angle < -180:
+                turn_angle += 360
+        
+            step_turn = PlanStep(
+                duration = abs(turn_angle/ps.max_angular_velocity_deg_s),
+                velocity_x_m_s = 0.0,
+                angular_velocity_deg_s = ps.max_angular_velocity_deg_s if turn_angle > 0 else -ps.max_angular_velocity_deg_s
+            )
+            step_move = PlanStep(
+                duration = distance_start_goal/ps.max_linear_velocity_m_s,
+                velocity_x_m_s = ps.max_linear_velocity_m_s,
+                angular_velocity_deg_s = 0.0
+            )
+            # add to plan
+            plan.append(step_turn)
+            plan.append(step_move)
+
+            current_theta = theta_goal_turn
+
+            if node == len(pose_data)-1:
+                # last node, orient at goal position
+                theta_goal_orient = b.theta_deg - current_theta  # difference in move angle to goal angle
+                if theta_goal_orient > 180:
+                    theta_goal_orient -= 360
+                elif theta_goal_orient < -180:
+                    theta_goal_orient += 360
                 
-                step_move = PlanStep(
-                    duration = distance_start_goal/ps.max_linear_velocity_m_s,
-                    velocity_x_m_s = ps.max_linear_velocity_m_s,
-                    angular_velocity_deg_s = 0.0
+                goal_orient = PlanStep(
+                    duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
+                    velocity_x_m_s = 0.0,
+                    angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
                 )
-                plan.append(step_move)
 
-                if node == len(pose_data)-1: # last node, orient at goal position
-                    theta_goal_orient = b.theta_deg - pose_data[node-1][2]  # difference in move angle to goal angle
-
-                    goal_orient = PlanStep(
-                        duration = abs(theta_goal_orient/ps.max_angular_velocity_deg_s),
-                        velocity_x_m_s = 0.0,
-                        angular_velocity_deg_s = ps.max_angular_velocity_deg_s if theta_goal_orient > 0 else -ps.max_angular_velocity_deg_s
-                    )
-
-                    # add to plan
-                    plan.append(goal_orient)
+                # add to plan
+                plan.append(goal_orient)
     
     # print('NODE PATH', node_path)
     # print('POSE DATA', pose_data)
@@ -133,7 +129,7 @@ def closest_node(G, target_pos):
 def collision_check(node, env: List[PlacedPrimitive]):
     node_name, node_data = node
     node_pos = node_data['q'][:2, 2]
-    dist_from_obs = .1 # keep an additional distance away from obstacles
+    dist_from_obs = .15 # keep an additional distance away from obstacles (for turning)
     ## Empty Environment
     if not env:
         return False
